@@ -1,0 +1,29 @@
+{
+  "name": "weatherrobe",
+  "version": "1.0.0",
+  "description": "Personal weather-based outfit recommendation MCP server",
+  "main": "dist/index.js",
+  "scripts": {
+    "test": "vitest run",
+    "build": "tsc",
+    "dev": "tsx src/index.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.29.0",
+    "zod": "^4.4.3"
+  },
+  "devDependencies": {
+    "@types/node": "^25.7.0",
+    "tsx": "^4.21.0",
+    "typescript": "^6.0.3",
+    "vitest": "^4.1.6"
+  },
+  "type": "module",
+  "bin": {
+    "weatherrobe": "dist/index.js"
+  }
+}
