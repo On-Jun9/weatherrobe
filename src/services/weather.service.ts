@@ -28,6 +28,45 @@ export class WeatherService {
     return this.getOrFetch(date, location, date < todayIso() ? "historical" : "forecast");
   }
 
+  recordSnapshot(input: {
+    date: string;
+    location: Location;
+    morningTemp?: number;
+    afternoonTemp?: number;
+    eveningTemp?: number;
+    minTemp: number;
+    maxTemp: number;
+    feelsLike?: number;
+    humidity?: number;
+    windSpeed?: number;
+    precipitationChance?: number;
+    condition: string;
+    uvIndex?: number;
+    airQuality?: string;
+    source?: string;
+  }): WeatherSnapshot {
+    return this.weatherRepository.save({
+      date: input.date,
+      locationName: input.location.name,
+      latitude: input.location.latitude,
+      longitude: input.location.longitude,
+      morningTemp: input.morningTemp,
+      afternoonTemp: input.afternoonTemp,
+      eveningTemp: input.eveningTemp,
+      minTemp: input.minTemp,
+      maxTemp: input.maxTemp,
+      feelsLike: input.feelsLike,
+      humidity: input.humidity,
+      windSpeed: input.windSpeed,
+      precipitationChance: input.precipitationChance,
+      condition: input.condition,
+      uvIndex: input.uvIndex,
+      airQuality: input.airQuality,
+      source: input.source ?? "llm",
+      capturedAt: new Date().toISOString()
+    });
+  }
+
   async getOrFetch(date: string, location: Location, mode: "forecast" | "historical" = "forecast"): Promise<WeatherSnapshot> {
     const existing = this.weatherRepository.getBest(date, location.latitude, location.longitude);
     if (existing) return existing;
