@@ -2,8 +2,8 @@ import type { DatabaseSync } from "node:sqlite";
 
 export function migrate(db: DatabaseSync): void {
   const version = db.prepare("PRAGMA user_version").get() as { user_version: number };
-  if (version.user_version >= 1) return;
-  db.exec(`
+  if (version.user_version === 0) {
+    db.exec(`
     CREATE TABLE IF NOT EXISTS user_profile (
       id INTEGER PRIMARY KEY CHECK(id = 1),
       location_name TEXT NOT NULL,
@@ -65,6 +65,7 @@ export function migrate(db: DatabaseSync): void {
       comfort_score INTEGER CHECK(comfort_score BETWEEN 1 AND 5),
       felt_cold INTEGER DEFAULT 0,
       felt_hot INTEGER DEFAULT 0,
+      weather_context TEXT,
       weather_snapshot_id INTEGER,
       created_at TEXT NOT NULL DEFAULT (datetime('now')),
       updated_at TEXT NOT NULL DEFAULT (datetime('now')),
@@ -87,6 +88,15 @@ export function migrate(db: DatabaseSync): void {
     );
     CREATE INDEX IF NOT EXISTS idx_recommendation_date ON outfit_recommendation(target_date);
 
-    PRAGMA user_version = 1;
+    PRAGMA user_version = 2;
   `);
+    return;
+  }
+  if (version.user_version < 2) {
+    const columns = db.prepare("PRAGMA table_info(outfit_log)").all() as Array<{ name: string }>;
+    if (!columns.some((column) => column.name === "weather_context")) {
+      db.exec("ALTER TABLE outfit_log ADD COLUMN weather_context TEXT");
+    }
+    db.exec("PRAGMA user_version = 2");
+  }
 }
