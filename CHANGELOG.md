@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.1.1
+
+- `.npmrc` 추가: `ignore-scripts`, `strict-ssl`, `save-exact`, `audit` 활성화.
+- 의존성 버전을 정확히 고정 (`^` 범위 제거).
+- `.gitignore`에 `.env.*`, `*.sqlite`, `*.sqlite3` 패턴 추가.
+- `package.json`에 `engines` 필드 추가 (Node.js 22 이상 명시).
+- README에 `npm ci` 사용 권장 및 `ignore-scripts` 안내 추가.
+
 ## 1.1.0
 
 - `log_outfit` 기록 시 `time_slot` 기준 날씨 컨텍스트를 `outfit_log.weather_context`에 고정 저장합니다.
