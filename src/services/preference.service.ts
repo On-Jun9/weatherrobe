@@ -16,8 +16,8 @@ export class PreferenceService {
     const logs = location ? this.outfits.allWithWeather(location) : [];
     const coldLogs = logs.filter((log) => log.feltCold);
     const hotLogs = logs.filter((log) => log.feltHot);
-    const rainDiscomfort = logs.filter((log) => (log.weather?.precipitationChance ?? 0) >= 40 && (log.comfortScore ?? 5) <= 2);
-    const windDiscomfort = logs.filter((log) => (log.weather?.windSpeed ?? 0) >= 7 && (log.comfortScore ?? 5) <= 2);
+    const rainDiscomfort = logs.filter((log) => (log.weatherContext?.precipitationChance ?? log.weather?.precipitationChance ?? 0) >= 40 && (log.comfortScore ?? 5) <= 2);
+    const windDiscomfort = logs.filter((log) => (log.weatherContext?.windSpeed ?? log.weather?.windSpeed ?? 0) >= 7 && (log.comfortScore ?? 5) <= 2);
     const denominator = Math.max(logs.length, 1);
     const sensitivity = this.users.updateSensitivity({
       coldSensitivity: clamp(0.5 + coldLogs.length / denominator / 2),

@@ -6,6 +6,7 @@ import type { PreferenceService } from "../services/preference.service.js";
 import type { RecommendationService } from "../services/recommendation.service.js";
 import type { UserService } from "../services/user.service.js";
 import type { WeatherService } from "../services/weather.service.js";
+import type { WeatherContext } from "../models/types.js";
 import { todayIso } from "../utils/date.js";
 import { toolError, toolResult } from "../utils/mcp.js";
 
@@ -103,6 +104,7 @@ function logJson(log: {
   feltCold: boolean;
   feltHot: boolean;
   feedbackText?: string;
+  weatherContext?: WeatherContext;
   weather?: unknown;
 }) {
   return {
@@ -120,6 +122,21 @@ function logJson(log: {
     felt_cold: log.feltCold,
     felt_hot: log.feltHot,
     feedback_text: log.feedbackText,
+    weather_context: log.weatherContext
+      ? {
+          time_slot: log.weatherContext.timeSlot,
+          temp: log.weatherContext.temp,
+          min_temp: log.weatherContext.minTemp,
+          max_temp: log.weatherContext.maxTemp,
+          feels_like: log.weatherContext.feelsLike,
+          humidity: log.weatherContext.humidity,
+          wind_speed: log.weatherContext.windSpeed,
+          precipitation_chance: log.weatherContext.precipitationChance,
+          condition: log.weatherContext.condition,
+          source: log.weatherContext.source,
+          captured_at: log.weatherContext.capturedAt
+        }
+      : undefined,
     weather: log.weather
   };
 }
@@ -255,7 +272,8 @@ export function registerTools(server: McpServer, services: Services): void {
           weather_linked: Boolean(log.weatherSnapshotId),
           weather_summary: log.weather
             ? { morning_temp: log.weather.morningTemp, afternoon_temp: log.weather.afternoonTemp, condition: log.weather.condition }
-            : undefined
+            : undefined,
+          weather_context: logJson(log).weather_context
         });
       } catch (error) {
         return toolError((error as Error).message);

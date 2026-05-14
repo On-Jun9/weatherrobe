@@ -44,6 +44,20 @@ export type WeatherSnapshot = WeatherData & {
   id: number;
 };
 
+export type WeatherContext = {
+  timeSlot: TimeSlot;
+  temp?: number;
+  minTemp?: number;
+  maxTemp?: number;
+  feelsLike?: number;
+  humidity?: number;
+  windSpeed?: number;
+  precipitationChance?: number;
+  condition: string;
+  source: string;
+  capturedAt: string;
+};
+
 export type OutfitFields = {
   tops?: string[];
   bottoms?: string[];
@@ -66,6 +80,7 @@ export type OutfitLog = OutfitFields & {
   feltCold: boolean;
   feltHot: boolean;
   weatherSnapshotId?: number;
+  weatherContext?: WeatherContext;
   createdAt: string;
   updatedAt: string;
   weather?: WeatherSnapshot | null;

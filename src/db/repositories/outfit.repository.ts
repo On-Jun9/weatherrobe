@@ -1,5 +1,5 @@
 import type { DatabaseSync } from "node:sqlite";
-import type { Location, OutfitFields, OutfitLog, TimeSlot } from "../../models/types.js";
+import type { Location, OutfitFields, OutfitLog, TimeSlot, WeatherContext } from "../../models/types.js";
 import { WeatherRepository } from "./weather.repository.js";
 
 const outfitKeys = ["tops", "bottoms", "outerwear", "fullBody", "innerwear", "shoes", "accessories"] as const;
@@ -31,6 +31,7 @@ type OutfitRow = {
   comfort_score: number | null;
   felt_cold: number;
   felt_hot: number;
+  weather_context: string | null;
   weather_snapshot_id: number | null;
   created_at: string;
   updated_at: string;
@@ -45,6 +46,7 @@ export type LogOutfitInput = OutfitFields & {
   feltCold?: boolean;
   feltHot?: boolean;
   weatherSnapshotId?: number;
+  weatherContext?: WeatherContext;
 };
 
 export type UpdateOutfitInput = OutfitFields & {
@@ -64,6 +66,10 @@ function parseArray(value: string | null): string[] | undefined {
 
 function encodeArray(value: string[] | undefined): string | null {
   return value ? JSON.stringify(value) : null;
+}
+
+function parseWeatherContext(value: string | null): WeatherContext | undefined {
+  return value ? (JSON.parse(value) as WeatherContext) : undefined;
 }
 
 function map(row: OutfitRow): OutfitLog {
@@ -86,6 +92,7 @@ function map(row: OutfitRow): OutfitLog {
     feltCold: Boolean(row.felt_cold),
     feltHot: Boolean(row.felt_hot),
     weatherSnapshotId: row.weather_snapshot_id ?? undefined,
+    weatherContext: parseWeatherContext(row.weather_context),
     createdAt: row.created_at,
     updatedAt: row.updated_at
   };
@@ -104,8 +111,8 @@ export class OutfitRepository {
         `INSERT INTO outfit_log (
           date, time_slot, location_name, latitude, longitude,
           tops, bottoms, outerwear, full_body, innerwear, shoes, accessories,
-          feedback_text, comfort_score, felt_cold, felt_hot, weather_snapshot_id
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+          feedback_text, comfort_score, felt_cold, felt_hot, weather_context, weather_snapshot_id
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
       )
       .run(
         input.date,
@@ -124,6 +131,7 @@ export class OutfitRepository {
         input.comfortScore ?? null,
         input.feltCold ? 1 : 0,
         input.feltHot ? 1 : 0,
+        input.weatherContext ? JSON.stringify(input.weatherContext) : null,
         input.weatherSnapshotId ?? null
       );
     return this.get(Number(result.lastInsertRowid))!;

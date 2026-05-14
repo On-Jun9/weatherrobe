@@ -71,6 +71,42 @@ describe("Weatherrobe MVP services", () => {
     expect(log.weather?.condition).toBe("rain");
   });
 
+  it("freezes slot-specific weather context when logging comfort feedback", async () => {
+    const location = userService.setDefaultLocation({ name: "서울 강남구", latitude: 37.4979, longitude: 127.0276 });
+    const first = weatherService.recordSnapshot({
+      date: "2026-05-21",
+      location,
+      morningTemp: 8,
+      afternoonTemp: 24,
+      eveningTemp: 17,
+      minTemp: 7,
+      maxTemp: 25,
+      precipitationChance: 10,
+      condition: "sunny",
+      source: "llm"
+    });
+    const log = await outfitService.log({ date: "2026-05-21", timeSlot: "morning", tops: ["반팔"], feltCold: true, comfortScore: 2 });
+    expect(log.weatherSnapshotId).toBe(first.id);
+    expect(log.weatherContext?.timeSlot).toBe("morning");
+    expect(log.weatherContext?.temp).toBe(8);
+
+    weatherService.recordSnapshot({
+      date: "2026-05-21",
+      location,
+      morningTemp: 15,
+      afternoonTemp: 26,
+      eveningTemp: 20,
+      minTemp: 14,
+      maxTemp: 27,
+      condition: "cloudy",
+      source: "llm"
+    });
+    const history = outfitService.history("2026-05-21", "2026-05-21", location);
+    expect(history[0].weather?.morningTemp).toBe(15);
+    expect(history[0].weatherContext?.temp).toBe(8);
+    expect(history[0].weatherContext?.condition).toBe("sunny");
+  });
+
   it("logs outfits with weather linkage and returns history", async () => {
     userService.setDefaultLocation({ name: "서울 강남구", latitude: 37.4979, longitude: 127.0276 });
     const log = await outfitService.log({

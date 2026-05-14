@@ -139,7 +139,7 @@ async function main(): Promise<void> {
     );
     assert(weather.sources?.[0] === "llm", "get_weather did not return saved LLM snapshot");
 
-    const log = structured<{ id: number; weather_linked: boolean }>(
+    const log = structured<{ id: number; weather_linked: boolean; weather_context: { time_slot: string; temp: number; condition: string; source: string } }>(
       await record("log_outfit linked to saved weather", () =>
         client.callTool({
           name: "log_outfit",
@@ -158,6 +158,26 @@ async function main(): Promise<void> {
       )
     );
     assert(log.weather_linked === true, "log_outfit did not link to saved weather");
+    assert(log.weather_context.time_slot === "morning", "log_outfit did not freeze the requested time slot");
+    assert(log.weather_context.temp === 12, "log_outfit did not freeze morning weather temperature");
+    assert(log.weather_context.source === "llm", "log_outfit weather context should keep source attribution");
+
+    await record("record_weather_snapshot updated after comfort log", () =>
+      client.callTool({
+        name: "record_weather_snapshot",
+        arguments: {
+          date: "2026-05-20",
+          min_temp: 16,
+          max_temp: 27,
+          morning_temp: 17,
+          afternoon_temp: 26,
+          evening_temp: 21,
+          condition: "cloudy",
+          precipitation_chance: 20,
+          source: "llm"
+        }
+      })
+    );
 
     const updated = structured<{ updated_fields: string[] }>(
       await record("update_outfit", () => client.callTool({ name: "update_outfit", arguments: { id: log.id, outerwear: ["가벼운 바람막이"], comfort_score: 5 } }))
@@ -172,11 +192,13 @@ async function main(): Promise<void> {
     assert(recommendation.weather_forecast.sources[0] === "llm", "recommend_outfit did not use LLM weather");
     assert(recommendation.based_on_logs.some((item) => item.id === log.id), "recommend_outfit did not reference logged outfit");
 
-    const compare = structured<{ matches: Array<{ similarity_score: number }> }>(
+    const compare = structured<{ matches: Array<{ similarity_score: number; weather: { morning_temp?: number; condition?: string } }> }>(
       await record("compare_weather_to_history", () => client.callTool({ name: "compare_weather_to_history", arguments: { target_date: "2026-05-20", limit: 3 } }))
     );
     assert(compare.matches.length >= 1, "compare_weather_to_history returned no matches");
-    assert(compare.matches[0].similarity_score >= 0.99, "compare_weather_to_history did not identify exact weather match");
+    assert(compare.matches[0].weather.morning_temp === 12, "compare_weather_to_history should compare against frozen comfort weather");
+    assert(compare.matches[0].weather.condition === "rain", "compare_weather_to_history should keep frozen comfort condition");
+    assert(compare.matches[0].similarity_score < 1, "compare_weather_to_history should not treat updated forecast as the original comfort weather");
 
     const alert = structured<{ changed: boolean; alerts: string[]; previous: unknown; current: unknown }>(
       await record("watch_weather_changes", () => client.callTool({ name: "watch_weather_changes", arguments: { target_date: "2026-05-20", diurnal_threshold: 1 } }))
@@ -195,6 +217,8 @@ async function main(): Promise<void> {
     );
     assert(history.count === 1, "get_outfit_history should return one log");
     assert(history.logs[0]?.weather?.sources?.[0], "get_outfit_history should include linked weather");
+    assert((history.logs[0] as { weather_context?: { temp?: number; condition?: string } }).weather_context?.temp === 12, "history should preserve original comfort weather temp");
+    assert((history.logs[0] as { weather_context?: { temp?: number; condition?: string } }).weather_context?.condition === "rain", "history should preserve original comfort weather condition");
 
     const deleted = structured<{ deleted: boolean }>(
       await record("delete_outfit existing", () => client.callTool({ name: "delete_outfit", arguments: { id: log.id } }))

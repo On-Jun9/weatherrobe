@@ -1,7 +1,7 @@
 import { OutfitRepository } from "../db/repositories/outfit.repository.js";
 import { RecommendationRepository } from "../db/repositories/recommendation.repository.js";
 import { UserRepository } from "../db/repositories/user.repository.js";
-import type { Location, OutfitFields, SimilarLog, WeatherSnapshot } from "../models/types.js";
+import type { Location, OutfitFields, OutfitLog, SimilarLog, WeatherSnapshot } from "../models/types.js";
 import { coldStartOutfit, weatherRiskAlerts } from "../utils/cold-start.js";
 import { tomorrowIso } from "../utils/date.js";
 import { weatherSimilarityScore } from "../utils/similarity.js";
@@ -24,6 +24,30 @@ function addUnique(values: string[] | undefined, item: string): string[] {
   return values?.includes(item) ? values : [...(values ?? []), item];
 }
 
+function weatherForComfortLog(log: OutfitLog): WeatherSnapshot | null {
+  if (!log.weatherContext) return log.weather ?? null;
+  const context = log.weatherContext;
+  return {
+    id: log.weatherSnapshotId ?? 0,
+    date: log.date,
+    locationName: log.locationName,
+    latitude: log.latitude,
+    longitude: log.longitude,
+    morningTemp: context.timeSlot === "morning" ? context.temp : undefined,
+    afternoonTemp: context.timeSlot === "afternoon" ? context.temp : undefined,
+    eveningTemp: context.timeSlot === "evening" ? context.temp : undefined,
+    minTemp: context.minTemp ?? context.temp ?? 0,
+    maxTemp: context.maxTemp ?? context.temp ?? 0,
+    feelsLike: context.feelsLike ?? context.temp,
+    humidity: context.humidity,
+    windSpeed: context.windSpeed,
+    precipitationChance: context.precipitationChance,
+    condition: context.condition,
+    source: context.source,
+    capturedAt: context.capturedAt
+  };
+}
+
 export class RecommendationService {
   private readonly userService: UserService;
 
@@ -43,7 +67,11 @@ export class RecommendationService {
     const sensitivity = this.users.getSensitivity();
     const matches = this.outfits
       .allWithWeather(location)
-      .map((log) => ({ log, weather: log.weather!, similarityScore: weatherSimilarityScore(targetWeather, log.weather!, sensitivity) }))
+      .map((log) => {
+        const weather = weatherForComfortLog(log);
+        return weather ? { log, weather, similarityScore: weatherSimilarityScore(targetWeather, weather, sensitivity) } : null;
+      })
+      .filter((match): match is SimilarLog => Boolean(match))
       .sort((a, b) => b.similarityScore - a.similarityScore)
       .slice(0, input.limit ?? 5);
     return { targetWeather, matches };
