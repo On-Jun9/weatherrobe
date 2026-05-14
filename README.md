@@ -16,6 +16,7 @@ MCP 클라이언트에서는 `weatherrobe` 명령 또는 `node dist/index.js`를
 
 - `set_default_location`
 - `get_weather`
+- `record_weather_snapshot`
 - `log_outfit`
 - `get_outfit_history`
 - `update_outfit`

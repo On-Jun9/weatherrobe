@@ -155,6 +155,69 @@ export function registerTools(server: McpServer, services: Services): void {
   );
 
   server.registerTool(
+    "record_weather_snapshot",
+    {
+      description: "LLM 클라이언트가 외부에서 조회한 구조화 날씨 데이터를 저장합니다. 위치 생략 시 기본 위치를 사용합니다.",
+      inputSchema: z.object({
+        date: z.string(),
+        location_name: z.string().optional(),
+        ...locationInput,
+        morning_temp: z.number().optional(),
+        afternoon_temp: z.number().optional(),
+        evening_temp: z.number().optional(),
+        min_temp: z.number(),
+        max_temp: z.number(),
+        feels_like: z.number().optional(),
+        humidity: z.number().optional(),
+        wind_speed: z.number().optional(),
+        precipitation_chance: z.number().optional(),
+        condition: z.string(),
+        uv_index: z.number().optional(),
+        air_quality: z.string().optional(),
+        source: z.string().optional()
+      }),
+      outputSchema: z.object({
+        id: z.number(),
+        date: z.string(),
+        location: z.object({ name: z.string(), latitude: z.number(), longitude: z.number() }),
+        source: z.string(),
+        saved: z.boolean()
+      })
+    },
+    async (args) => {
+      try {
+        const location = services.userService.resolveLocation({ name: args.location_name, latitude: args.latitude, longitude: args.longitude });
+        const snapshot = services.weatherService.recordSnapshot({
+          date: args.date,
+          location,
+          morningTemp: args.morning_temp,
+          afternoonTemp: args.afternoon_temp,
+          eveningTemp: args.evening_temp,
+          minTemp: args.min_temp,
+          maxTemp: args.max_temp,
+          feelsLike: args.feels_like,
+          humidity: args.humidity,
+          windSpeed: args.wind_speed,
+          precipitationChance: args.precipitation_chance,
+          condition: args.condition,
+          uvIndex: args.uv_index,
+          airQuality: args.air_quality,
+          source: args.source
+        });
+        return toolResult({
+          id: snapshot.id,
+          date: snapshot.date,
+          location: { name: snapshot.locationName, latitude: snapshot.latitude, longitude: snapshot.longitude },
+          source: snapshot.source,
+          saved: true
+        });
+      } catch (error) {
+        return toolError((error as Error).message);
+      }
+    }
+  );
+
+  server.registerTool(
     "log_outfit",
     {
       description: "옷차림과 체감 피드백을 기록합니다. 구조화된 카테고리별 입력을 받으며, 자연어 파싱은 LLM 클라이언트가 담당합니다.",

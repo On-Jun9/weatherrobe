@@ -52,6 +52,25 @@ describe("Weatherrobe MVP services", () => {
     expect(snapshot.source).toBe("scraper");
   });
 
+  it("records weather supplied by an LLM client and reuses it for outfit logs", async () => {
+    const location = userService.setDefaultLocation({ name: "서울 강남구", latitude: 37.4979, longitude: 127.0276 });
+    const snapshot = weatherService.recordSnapshot({
+      date: "2026-05-20",
+      location,
+      morningTemp: 12,
+      afternoonTemp: 23,
+      minTemp: 11,
+      maxTemp: 24,
+      precipitationChance: 70,
+      condition: "rain",
+      source: "llm"
+    });
+    expect(snapshot.source).toBe("llm");
+    const log = await outfitService.log({ date: "2026-05-20", tops: ["긴팔"], accessories: ["우산"] });
+    expect(log.weatherSnapshotId).toBe(snapshot.id);
+    expect(log.weather?.condition).toBe("rain");
+  });
+
   it("logs outfits with weather linkage and returns history", async () => {
     userService.setDefaultLocation({ name: "서울 강남구", latitude: 37.4979, longitude: 127.0276 });
     const log = await outfitService.log({
