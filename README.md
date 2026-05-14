@@ -1,6 +1,6 @@
 # Weatherrobe
 
-현재 버전: `1.1.0`
+현재 버전: `1.1.1`
 
 개인 맞춤 날씨 기반 옷차림 추천 MCP 서버입니다. 자연어 파싱은 MCP 클라이언트가 담당하고, 서버는 구조화된 위치/날씨/옷차림/체감 데이터를 처리합니다.
 
@@ -16,9 +16,11 @@ SQLite 데이터베이스는 기본적으로 `~/.weatherrobe/weatherrobe.db`에 
 
 ```bash
 cd <repo-path>
-npm install
+npm ci
 npm run build
 ```
+
+> **참고:** `.npmrc`에 `ignore-scripts=true`가 설정되어 있어 설치 시 lifecycle script가 실행되지 않습니다. 만약 특정 패키지가 postinstall을 필요로 하는 경우 `npm rebuild <패키지명>`으로 개별 실행할 수 있습니다.
 
 ## 기존 설치 업데이트
 
@@ -26,7 +28,7 @@ npm run build
 
 ```bash
 cd <repo-path>
-npm install
+npm ci
 npm run build
 ```
 
