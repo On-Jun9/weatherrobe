@@ -2,7 +2,10 @@ node_modules/
 dist/
 coverage/
 .env
+.env.*
 *.log
 .DS_Store
 *.db
+*.sqlite
+*.sqlite3
 mcp-*-test-output.json
