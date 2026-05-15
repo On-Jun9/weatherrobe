@@ -21,6 +21,7 @@ type WeatherRow = {
   uv_index: number | null;
   air_quality: string | null;
   source: string;
+  target_time: string | null;
   captured_at: string;
 };
 
@@ -44,6 +45,7 @@ function map(row: WeatherRow): WeatherSnapshot {
     uvIndex: row.uv_index ?? undefined,
     airQuality: row.air_quality ?? undefined,
     source: row.source,
+    targetTime: row.target_time ?? undefined,
     capturedAt: row.captured_at
   };
 }
@@ -58,8 +60,8 @@ export class WeatherRepository {
           `INSERT INTO weather_snapshot (
             date, location_name, latitude, longitude, morning_temp, afternoon_temp, evening_temp,
             min_temp, max_temp, feels_like, humidity, wind_speed, precipitation_chance,
-            condition, uv_index, air_quality, source, captured_at
-          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+            condition, uv_index, air_quality, source, target_time, captured_at
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
         )
         .run(
           input.date,
@@ -79,6 +81,7 @@ export class WeatherRepository {
           input.uvIndex ?? null,
           input.airQuality ?? null,
           input.source,
+          input.targetTime ?? null,
           input.capturedAt
         );
       return this.getById(Number(result.lastInsertRowid))!;

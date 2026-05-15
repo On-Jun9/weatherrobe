@@ -42,6 +42,7 @@ const weatherOutputSchema = z.object({
   uv_index: z.number().optional(),
   air_quality: z.string().optional(),
   source: z.string(),
+  target_time: z.string().optional(),
   captured_at: z.string()
 });
 const weatherContextOutputSchema = z.object({
@@ -123,6 +124,7 @@ function weatherJson(weather: {
   uvIndex?: number;
   airQuality?: string;
   source: string;
+  targetTime?: string;
   capturedAt: string;
 }) {
   return {
@@ -142,6 +144,7 @@ function weatherJson(weather: {
     uv_index: weather.uvIndex,
     air_quality: weather.airQuality,
     source: weather.source,
+    target_time: weather.targetTime,
     captured_at: weather.capturedAt
   };
 }
@@ -245,7 +248,8 @@ export function registerTools(server: McpServer, services: Services): void {
         condition: z.string(),
         uv_index: z.number().optional(),
         air_quality: z.string().optional(),
-        source: z.string().optional()
+        source: z.string().optional(),
+        target_time: z.string().regex(/^\d{2}:\d{2}$/).optional().describe("이 스냅샷이 나타내는 시각 (HH:MM). 예: '09:00', '14:30'")
       }),
       outputSchema: z.object({
         id: z.number(),
@@ -273,7 +277,8 @@ export function registerTools(server: McpServer, services: Services): void {
           condition: args.condition,
           uvIndex: args.uv_index,
           airQuality: args.air_quality,
-          source: args.source
+          source: args.source,
+          targetTime: args.target_time
         });
         return toolResult({
           id: snapshot.id,

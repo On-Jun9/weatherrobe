@@ -43,6 +43,7 @@ export class WeatherService {
     uvIndex?: number;
     airQuality?: string;
     source?: string;
+    targetTime?: string;
   }): WeatherSnapshot {
     return this.weatherRepository.save({
       date: input.date,
@@ -62,6 +63,7 @@ export class WeatherService {
       uvIndex: input.uvIndex,
       airQuality: input.airQuality,
       source: input.source ?? "llm",
+      targetTime: input.targetTime,
       capturedAt: new Date().toISOString()
     });
   }

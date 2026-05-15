@@ -1,8 +1,9 @@
 import type { DatabaseSync } from "node:sqlite";
 
 export function migrate(db: DatabaseSync): void {
-  const version = db.prepare("PRAGMA user_version").get() as { user_version: number };
-  if (version.user_version === 0) {
+  const version = (db.prepare("PRAGMA user_version").get() as { user_version: number }).user_version;
+
+  if (version === 0) {
     db.exec(`
     CREATE TABLE IF NOT EXISTS user_profile (
       id INTEGER PRIMARY KEY CHECK(id = 1),
@@ -42,6 +43,7 @@ export function migrate(db: DatabaseSync): void {
       uv_index REAL,
       air_quality TEXT,
       source TEXT NOT NULL,
+      target_time TEXT,
       captured_at TEXT NOT NULL DEFAULT (datetime('now'))
     );
     CREATE INDEX IF NOT EXISTS idx_weather_date_location ON weather_snapshot(date, latitude, longitude);
@@ -87,18 +89,20 @@ export function migrate(db: DatabaseSync): void {
     );
     CREATE INDEX IF NOT EXISTS idx_recommendation_date ON outfit_recommendation(target_date);
 
-    PRAGMA user_version = 2;
+    PRAGMA user_version = 4;
   `);
     return;
   }
-  if (version.user_version < 2) {
+
+  if (version < 2) {
     const columns = db.prepare("PRAGMA table_info(outfit_log)").all() as Array<{ name: string }>;
     if (!columns.some((column) => column.name === "weather_context")) {
       db.exec("ALTER TABLE outfit_log ADD COLUMN weather_context TEXT");
     }
     db.exec("PRAGMA user_version = 2");
   }
-  if (version.user_version < 3) {
+
+  if (version < 3) {
     db.exec(`
       ALTER TABLE weather_snapshot RENAME TO weather_snapshot_old;
       CREATE TABLE weather_snapshot (
@@ -127,5 +131,13 @@ export function migrate(db: DatabaseSync): void {
       CREATE INDEX IF NOT EXISTS idx_weather_date_location ON weather_snapshot(date, latitude, longitude);
       PRAGMA user_version = 3;
     `);
+  }
+
+  if (version < 4) {
+    const columns = db.prepare("PRAGMA table_info(weather_snapshot)").all() as Array<{ name: string }>;
+    if (!columns.some((column) => column.name === "target_time")) {
+      db.exec("ALTER TABLE weather_snapshot ADD COLUMN target_time TEXT");
+    }
+    db.exec("PRAGMA user_version = 4");
   }
 }
