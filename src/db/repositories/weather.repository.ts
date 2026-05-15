@@ -123,6 +123,17 @@ export class WeatherRepository {
     return rows.map(map);
   }
 
+  getByDate(date: string, latitude: number, longitude: number): WeatherSnapshot[] {
+    const rows = this.db
+      .prepare(
+        `SELECT * FROM weather_snapshot
+         WHERE date = ? AND latitude = ? AND longitude = ?
+         ORDER BY captured_at DESC, id DESC`
+      )
+      .all(date, latitude, longitude) as WeatherRow[];
+    return rows.map(map);
+  }
+
   private getByDateLocationSource(date: string, latitude: number, longitude: number, source: string): WeatherSnapshot | null {
     const row = this.db
       .prepare("SELECT * FROM weather_snapshot WHERE date = ? AND latitude = ? AND longitude = ? AND source = ?")

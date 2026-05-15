@@ -21,10 +21,10 @@ export class WeatherService {
     this.providers = providers ?? [new OpenWeatherProvider(), new WeatherApiProvider(), new KmaProvider()];
   }
 
-  async getWeather(input: { date?: string; latitude?: number; longitude?: number; name?: string }): Promise<WeatherSnapshot> {
+  getWeather(input: { date?: string; latitude?: number; longitude?: number; name?: string }): WeatherSnapshot[] {
     const date = input.date ?? todayIso();
     const location = this.userService.resolveLocation(input);
-    return this.getOrFetch(date, location, date < todayIso() ? "historical" : "forecast");
+    return this.weatherRepository.getByDate(date, location.latitude, location.longitude);
   }
 
   recordSnapshot(input: {
