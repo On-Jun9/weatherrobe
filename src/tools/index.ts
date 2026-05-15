@@ -24,6 +24,58 @@ const locationInput = {
   latitude: z.number().optional(),
   longitude: z.number().optional()
 };
+const locationOutputSchema = z.object({ name: z.string(), latitude: z.number(), longitude: z.number() });
+const weatherOutputSchema = z.object({
+  date: z.string(),
+  location: locationOutputSchema,
+  morning_temp: z.number().optional(),
+  afternoon_temp: z.number().optional(),
+  evening_temp: z.number().optional(),
+  min_temp: z.number(),
+  max_temp: z.number(),
+  feels_like: z.number().optional(),
+  humidity: z.number().optional(),
+  wind_speed: z.number().optional(),
+  precipitation_chance: z.number().optional(),
+  condition: z.string(),
+  uv_index: z.number().optional(),
+  air_quality: z.string().optional(),
+  sources: z.array(z.string()).optional()
+});
+const weatherContextOutputSchema = z.object({
+  time_slot: z.string(),
+  temp: z.number().optional(),
+  min_temp: z.number().optional(),
+  max_temp: z.number().optional(),
+  feels_like: z.number().optional(),
+  humidity: z.number().optional(),
+  wind_speed: z.number().optional(),
+  precipitation_chance: z.number().optional(),
+  condition: z.string(),
+  source: z.string(),
+  captured_at: z.string()
+});
+const outfitItemsSchema = {
+  tops: z.array(z.string()).optional(),
+  bottoms: z.array(z.string()).optional(),
+  outerwear: z.array(z.string()).optional(),
+  full_body: z.array(z.string()).optional(),
+  innerwear: z.array(z.string()).optional(),
+  shoes: z.array(z.string()).optional(),
+  accessories: z.array(z.string()).optional()
+};
+const outfitLogOutputSchema = z.object({
+  id: z.number(),
+  date: z.string(),
+  time_slot: z.string(),
+  ...outfitItemsSchema,
+  comfort_score: z.number().optional(),
+  felt_cold: z.boolean(),
+  felt_hot: z.boolean(),
+  feedback_text: z.string().optional(),
+  weather_context: weatherContextOutputSchema.optional(),
+  weather: weatherOutputSchema.nullable().optional()
+});
 const outfitFields = {
   tops: z.array(z.string()).optional(),
   bottoms: z.array(z.string()).optional(),
@@ -160,7 +212,7 @@ export function registerTools(server: McpServer, services: Services): void {
     {
       description: "특정 위치와 날짜의 날씨 정보를 조회합니다. 위치 생략 시 기본 위치, 날짜 생략 시 오늘.",
       inputSchema: z.object({ date: z.string().optional(), ...locationInput }),
-      outputSchema: z.object({ date: z.string() }).passthrough()
+      outputSchema: weatherOutputSchema
     },
     async (args) => {
       try {
@@ -237,7 +289,7 @@ export function registerTools(server: McpServer, services: Services): void {
   server.registerTool(
     "log_outfit",
     {
-      description: "옷차림과 체감 피드백을 기록합니다. 구조화된 카테고리별 입력을 받으며, 자연어 파싱은 LLM 클라이언트가 담당합니다.",
+      description: "옷차림과 체감 피드백을 기록합니다. 구조화된 카테고리별 입력을 받으며, 자연어 파싱은 LLM 클라이언트가 담당합니다. tops, bottoms, outerwear, full_body, innerwear, shoes, accessories 중 최소 1개는 필수입니다.",
       inputSchema: z
         .object({
           date: z.string().optional(),
@@ -250,7 +302,14 @@ export function registerTools(server: McpServer, services: Services): void {
           feedback_text: z.string().optional()
         })
         .refine(hasOutfitField, { message: "옷 카테고리 중 최소 1개는 필요합니다." }),
-      outputSchema: z.object({ id: z.number(), date: z.string(), time_slot: z.string(), weather_linked: z.boolean() }).passthrough()
+      outputSchema: z.object({
+        id: z.number(),
+        date: z.string(),
+        time_slot: z.string(),
+        weather_linked: z.boolean(),
+        weather_summary: z.object({ morning_temp: z.number().optional(), afternoon_temp: z.number().optional(), condition: z.string() }).optional(),
+        weather_context: weatherContextOutputSchema.optional()
+      })
     },
     async (args) => {
       try {
@@ -286,7 +345,7 @@ export function registerTools(server: McpServer, services: Services): void {
     {
       description: "기간별 옷차림 기록을 조회합니다. 날씨 데이터가 연결된 기록은 날씨 정보도 함께 반환합니다.",
       inputSchema: z.object({ start_date: z.string(), end_date: z.string().optional(), ...locationInput }),
-      outputSchema: z.object({ count: z.number(), logs: z.array(z.object({}).passthrough()) })
+      outputSchema: z.object({ count: z.number(), logs: z.array(outfitLogOutputSchema) })
     },
     async (args) => {
       try {
@@ -344,7 +403,16 @@ export function registerTools(server: McpServer, services: Services): void {
     {
       description: "대상 날짜의 날씨 예보와 과거 기록을 비교해 옷차림을 추천합니다. 기록이 없으면 기온 구간별 기본 룰셋으로 추천합니다.",
       inputSchema: z.object({ target_date: z.string().optional(), ...locationInput }),
-      outputSchema: z.object({ id: z.number(), target_date: z.string(), recommendation: z.object({}).passthrough(), reasons: z.array(z.string()), cold_start: z.boolean() }).passthrough()
+      outputSchema: z.object({
+        id: z.number(),
+        target_date: z.string(),
+        weather_forecast: weatherOutputSchema,
+        recommendation: z.object({ ...outfitItemsSchema }),
+        reasons: z.array(z.string()),
+        risk_alerts: z.array(z.string()),
+        based_on_logs: z.array(z.object({ id: z.number(), date: z.string(), similarity_score: z.number() })),
+        cold_start: z.boolean()
+      })
     },
     async (args) => {
       try {
@@ -378,7 +446,11 @@ export function registerTools(server: McpServer, services: Services): void {
     {
       description: "대상 날짜의 날씨와 과거 기록의 날씨 유사도를 비교합니다.",
       inputSchema: z.object({ target_date: z.string().optional(), ...locationInput, limit: z.number().int().min(1).max(20).optional() }),
-      outputSchema: z.object({ target_date: z.string(), matches: z.array(z.object({}).passthrough()) }).passthrough()
+      outputSchema: z.object({
+        target_date: z.string(),
+        target_weather: weatherOutputSchema,
+        matches: z.array(z.object({ log: outfitLogOutputSchema, weather: weatherOutputSchema, similarity_score: z.number() }))
+      })
     },
     async (args) => {
       try {
@@ -387,7 +459,7 @@ export function registerTools(server: McpServer, services: Services): void {
           target_date: result.targetWeather.date,
           target_weather: weatherJson(result.targetWeather),
           matches: result.matches.map((match) => ({
-            log: logJson(match.log),
+            log: logJson({ ...match.log, weather: match.log.weather ? weatherJson(match.log.weather) : null }),
             weather: weatherJson(match.weather),
             similarity_score: match.similarityScore
           }))
@@ -410,7 +482,14 @@ export function registerTools(server: McpServer, services: Services): void {
         wind_threshold: z.number().optional(),
         diurnal_threshold: z.number().optional()
       }),
-      outputSchema: z.object({ target_date: z.string(), changed: z.boolean(), alerts: z.array(z.string()) }).passthrough()
+      outputSchema: z.object({
+        target_date: z.string(),
+        location: locationOutputSchema,
+        changed: z.boolean(),
+        alerts: z.array(z.string()),
+        previous: weatherOutputSchema.nullable(),
+        current: weatherOutputSchema
+      })
     },
     async (args) => {
       try {
@@ -442,8 +521,29 @@ export function registerTools(server: McpServer, services: Services): void {
     {
       description: "누적 기록을 기반으로 사용자의 체감 성향을 자동 추정하고 요약합니다.",
       inputSchema: z.object({}),
-      outputSchema: z.object({ sensitivity: z.object({}).passthrough(), summary: z.string(), sample_count: z.number() })
+      outputSchema: z.object({
+        sensitivity: z.object({
+          cold_sensitivity: z.number(),
+          heat_sensitivity: z.number(),
+          rain_sensitivity: z.number(),
+          wind_sensitivity: z.number()
+        }),
+        summary: z.string(),
+        sample_count: z.number()
+      })
     },
-    async () => toolResult(services.preferenceService.summarize())
+    async () => {
+      const result = services.preferenceService.summarize();
+      return toolResult({
+        sensitivity: {
+          cold_sensitivity: result.sensitivity.coldSensitivity,
+          heat_sensitivity: result.sensitivity.heatSensitivity,
+          rain_sensitivity: result.sensitivity.rainSensitivity,
+          wind_sensitivity: result.sensitivity.windSensitivity
+        },
+        summary: result.summary,
+        sample_count: result.sample_count
+      });
+    }
   );
 }
