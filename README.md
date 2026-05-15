@@ -1,6 +1,6 @@
 # Weatherrobe
 
-현재 버전: `1.4.0`
+현재 버전: `1.4.1`
 
 개인 맞춤 날씨 기반 옷차림 추천 MCP 서버입니다. 자연어 파싱은 MCP 클라이언트가 담당하고, 서버는 구조화된 위치/날씨/옷차림/체감 데이터를 처리합니다.
 
@@ -54,6 +54,12 @@ Claude Desktop 같은 MCP 클라이언트가 이미 아래 파일을 바라보�
 ### 1.2.1 변경사항
 
 - **홈 디렉토리 해석 수정**: `os.homedir()` → `os.userInfo().homedir`로 변경. MCP 호스트(Hermes 등)가 `HOME` 환경변수를 재설정해도 시스템 passwd에서 실제 홈 디렉토리를 사용하여 올바른 DB 경로(`~/.weatherrobe/weatherrobe.db`)에 접근.
+
+### 1.4.1 변경사항
+
+- **`record_weather_snapshot` 응답에 `target_time` 반환 추가**: 입력한 `target_time` 값이 응답에 포함되지 않던 버그 수정.
+- **`log_outfit` 잘못된 `weather_snapshot_id` 에러 처리**: 존재하지 않는 id 지정 시 에러 없이 자동 매칭으로 fall-through되던 버그 수정. 이제 명확한 에러 반환.
+- **MCP 통합 테스트 전면 재작성**: 1.4.0 API(`{ snapshots: [] }`)와 실제 동작에 맞게 33개 케이스로 재작성.
 
 ### 1.4.0 변경사항
 

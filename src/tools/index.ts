@@ -256,6 +256,7 @@ export function registerTools(server: McpServer, services: Services): void {
         date: z.string(),
         location: z.object({ name: z.string(), latitude: z.number(), longitude: z.number() }),
         source: z.string(),
+        target_time: z.string().optional(),
         saved: z.boolean()
       })
     },
@@ -285,6 +286,7 @@ export function registerTools(server: McpServer, services: Services): void {
           date: snapshot.date,
           location: { name: snapshot.locationName, latitude: snapshot.latitude, longitude: snapshot.longitude },
           source: snapshot.source,
+          target_time: snapshot.targetTime,
           saved: true
         });
       } catch (error) {

@@ -25,10 +25,9 @@ export class OutfitService {
 
     if (input.weatherSnapshotId !== undefined) {
       const weather = this.weatherService.getById(input.weatherSnapshotId);
-      if (weather) {
-        weatherSnapshotId = weather.id;
-        weatherContext = weatherContextForSlot(weather, timeSlot);
-      }
+      if (!weather) throw new Error(`weather_snapshot_id ${input.weatherSnapshotId}에 해당하는 스냅샷이 없습니다.`);
+      weatherSnapshotId = weather.id;
+      weatherContext = weatherContextForSlot(weather, timeSlot);
     } else {
       try {
         const weather = await this.weatherService.getOrFetch(date, location, date < todayIso() ? "historical" : "forecast");
