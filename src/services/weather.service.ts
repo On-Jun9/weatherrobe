@@ -3,7 +3,6 @@ import { WeatherRepository } from "../db/repositories/weather.repository.js";
 import type { Location, WeatherSnapshot } from "../models/types.js";
 import { KmaProvider } from "../providers/kma.provider.js";
 import { OpenWeatherProvider } from "../providers/openweather.provider.js";
-import { ScraperWeatherProvider } from "../providers/scraper.provider.js";
 import { WeatherApiProvider } from "../providers/weatherapi.provider.js";
 import type { WeatherProvider } from "../providers/weather-provider.js";
 import { todayIso } from "../utils/date.js";
@@ -19,7 +18,7 @@ export class WeatherService {
     providers?: WeatherProvider[]
   ) {
     this.userService = new UserService(users);
-    this.providers = providers ?? [new OpenWeatherProvider(), new WeatherApiProvider(), new KmaProvider(), new ScraperWeatherProvider()];
+    this.providers = providers ?? [new OpenWeatherProvider(), new WeatherApiProvider(), new KmaProvider()];
   }
 
   async getWeather(input: { date?: string; latitude?: number; longitude?: number; name?: string }): Promise<WeatherSnapshot> {

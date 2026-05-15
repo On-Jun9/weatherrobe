@@ -1,5 +1,6 @@
 import type { DatabaseSync } from "node:sqlite";
 import type { Location, OutfitFields, OutfitLog, TimeSlot, WeatherContext } from "../../models/types.js";
+import { transaction } from "../connection.js";
 import { WeatherRepository } from "./weather.repository.js";
 
 const outfitKeys = ["tops", "bottoms", "outerwear", "fullBody", "innerwear", "shoes", "accessories"] as const;
@@ -106,35 +107,37 @@ export class OutfitRepository {
   }
 
   create(input: LogOutfitInput): OutfitLog {
-    const result = this.db
-      .prepare(
-        `INSERT INTO outfit_log (
-          date, time_slot, location_name, latitude, longitude,
-          tops, bottoms, outerwear, full_body, innerwear, shoes, accessories,
-          feedback_text, comfort_score, felt_cold, felt_hot, weather_context, weather_snapshot_id
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
-      )
-      .run(
-        input.date,
-        input.timeSlot,
-        input.location.name,
-        input.location.latitude,
-        input.location.longitude,
-        encodeArray(input.tops),
-        encodeArray(input.bottoms),
-        encodeArray(input.outerwear),
-        encodeArray(input.fullBody),
-        encodeArray(input.innerwear),
-        encodeArray(input.shoes),
-        encodeArray(input.accessories),
-        input.feedbackText ?? null,
-        input.comfortScore ?? null,
-        input.feltCold ? 1 : 0,
-        input.feltHot ? 1 : 0,
-        input.weatherContext ? JSON.stringify(input.weatherContext) : null,
-        input.weatherSnapshotId ?? null
-      );
-    return this.get(Number(result.lastInsertRowid))!;
+    return transaction(this.db, () => {
+      const result = this.db
+        .prepare(
+          `INSERT INTO outfit_log (
+            date, time_slot, location_name, latitude, longitude,
+            tops, bottoms, outerwear, full_body, innerwear, shoes, accessories,
+            feedback_text, comfort_score, felt_cold, felt_hot, weather_context, weather_snapshot_id
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+        )
+        .run(
+          input.date,
+          input.timeSlot,
+          input.location.name,
+          input.location.latitude,
+          input.location.longitude,
+          encodeArray(input.tops),
+          encodeArray(input.bottoms),
+          encodeArray(input.outerwear),
+          encodeArray(input.fullBody),
+          encodeArray(input.innerwear),
+          encodeArray(input.shoes),
+          encodeArray(input.accessories),
+          input.feedbackText ?? null,
+          input.comfortScore ?? null,
+          input.feltCold ? 1 : 0,
+          input.feltHot ? 1 : 0,
+          input.weatherContext ? JSON.stringify(input.weatherContext) : null,
+          input.weatherSnapshotId ?? null
+        );
+      return this.get(Number(result.lastInsertRowid))!;
+    });
   }
 
   get(id: number): OutfitLog | null {
@@ -192,13 +195,15 @@ export class OutfitRepository {
     }
     if (sets.length === 0) return { log: existing, updatedFields: [] };
     sets.push("updated_at = datetime('now')");
-    this.db.prepare(`UPDATE outfit_log SET ${sets.join(", ")} WHERE id = ?`).run(...(values as never[]), input.id);
-    const updatedFields = sets.filter((field) => !field.startsWith("updated_at")).map((field) => field.split(" = ")[0]);
-    return { log: this.get(input.id), updatedFields };
+    return transaction(this.db, () => {
+      this.db.prepare(`UPDATE outfit_log SET ${sets.join(", ")} WHERE id = ?`).run(...(values as never[]), input.id);
+      const updatedFields = sets.filter((field) => !field.startsWith("updated_at")).map((field) => field.split(" = ")[0]);
+      return { log: this.get(input.id), updatedFields };
+    });
   }
 
   delete(id: number): boolean {
-    return this.db.prepare("DELETE FROM outfit_log WHERE id = ?").run(id).changes > 0;
+    return transaction(this.db, () => this.db.prepare("DELETE FROM outfit_log WHERE id = ?").run(id).changes > 0);
   }
 
   private withWeather(log: OutfitLog): OutfitLog {

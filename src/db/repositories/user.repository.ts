@@ -1,5 +1,6 @@
 import type { DatabaseSync } from "node:sqlite";
 import type { Location, UserSensitivity } from "../../models/types.js";
+import { transaction } from "../connection.js";
 
 type ProfileRow = {
   location_name: string;
@@ -20,19 +21,23 @@ export class UserRepository {
   constructor(private readonly db: DatabaseSync) {}
 
   setDefaultLocation(location: Location): Location {
-    this.db
-      .prepare(
-        `INSERT INTO user_profile (id, location_name, latitude, longitude, updated_at)
-         VALUES (1, ?, ?, ?, datetime('now'))
-         ON CONFLICT(id) DO UPDATE SET
-           location_name = excluded.location_name,
-           latitude = excluded.latitude,
-           longitude = excluded.longitude,
-           updated_at = datetime('now')`
-      )
-      .run(location.name, location.latitude, location.longitude);
-    this.ensureSensitivity();
-    return location;
+    transaction(this.db, () => {
+      this.db
+        .prepare(
+          `INSERT INTO user_profile (id, location_name, latitude, longitude, updated_at)
+           VALUES (1, ?, ?, ?, datetime('now'))
+           ON CONFLICT(id) DO UPDATE SET
+             location_name = excluded.location_name,
+             latitude = excluded.latitude,
+             longitude = excluded.longitude,
+             updated_at = datetime('now')`
+        )
+        .run(location.name, location.latitude, location.longitude);
+      this.ensureSensitivity();
+    });
+    const saved = this.getDefaultLocation();
+    if (!saved) throw new Error("위치 저장에 실패했습니다.");
+    return saved;
   }
 
   getDefaultLocation(): Location | null {
@@ -58,18 +63,20 @@ export class UserRepository {
   }
 
   updateSensitivity(input: Omit<UserSensitivity, "updatedAt">): UserSensitivity {
-    this.db
-      .prepare(
-        `INSERT INTO user_sensitivity (id, cold_sensitivity, heat_sensitivity, rain_sensitivity, wind_sensitivity, updated_at)
-         VALUES (1, ?, ?, ?, ?, datetime('now'))
-         ON CONFLICT(id) DO UPDATE SET
-           cold_sensitivity = excluded.cold_sensitivity,
-           heat_sensitivity = excluded.heat_sensitivity,
-           rain_sensitivity = excluded.rain_sensitivity,
-           wind_sensitivity = excluded.wind_sensitivity,
-           updated_at = datetime('now')`
-      )
-      .run(input.coldSensitivity, input.heatSensitivity, input.rainSensitivity, input.windSensitivity);
-    return this.getSensitivity();
+    return transaction(this.db, () => {
+      this.db
+        .prepare(
+          `INSERT INTO user_sensitivity (id, cold_sensitivity, heat_sensitivity, rain_sensitivity, wind_sensitivity, updated_at)
+           VALUES (1, ?, ?, ?, ?, datetime('now'))
+           ON CONFLICT(id) DO UPDATE SET
+             cold_sensitivity = excluded.cold_sensitivity,
+             heat_sensitivity = excluded.heat_sensitivity,
+             rain_sensitivity = excluded.rain_sensitivity,
+             wind_sensitivity = excluded.wind_sensitivity,
+             updated_at = datetime('now')`
+        )
+        .run(input.coldSensitivity, input.heatSensitivity, input.rainSensitivity, input.windSensitivity);
+      return this.getSensitivity();
+    });
   }
 }

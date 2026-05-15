@@ -1,5 +1,8 @@
+import { readFileSync } from "node:fs";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { getDatabase } from "./db/connection.js";
+
+const { version } = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8"));
 import { migrate } from "./db/migrations.js";
 import { OutfitRepository } from "./db/repositories/outfit.repository.js";
 import { RecommendationRepository } from "./db/repositories/recommendation.repository.js";
@@ -25,7 +28,7 @@ export function createServer(): McpServer {
   const recommendationService = new RecommendationService(outfits, recommendations, weatherService, users);
   const alertService = new AlertService(weather, weatherService, users);
   const preferenceService = new PreferenceService(outfits, users);
-  const server = new McpServer({ name: "weatherrobe", version: "1.0.0" });
+  const server = new McpServer({ name: "weatherrobe", version });
   registerTools(server, {
     userService: new UserService(users),
     weatherService,
