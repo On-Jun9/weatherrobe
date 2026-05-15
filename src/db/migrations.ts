@@ -42,8 +42,7 @@ export function migrate(db: DatabaseSync): void {
       uv_index REAL,
       air_quality TEXT,
       source TEXT NOT NULL,
-      captured_at TEXT NOT NULL DEFAULT (datetime('now')),
-      UNIQUE(date, latitude, longitude, source)
+      captured_at TEXT NOT NULL DEFAULT (datetime('now'))
     );
     CREATE INDEX IF NOT EXISTS idx_weather_date_location ON weather_snapshot(date, latitude, longitude);
 
@@ -98,5 +97,35 @@ export function migrate(db: DatabaseSync): void {
       db.exec("ALTER TABLE outfit_log ADD COLUMN weather_context TEXT");
     }
     db.exec("PRAGMA user_version = 2");
+  }
+  if (version.user_version < 3) {
+    db.exec(`
+      ALTER TABLE weather_snapshot RENAME TO weather_snapshot_old;
+      CREATE TABLE weather_snapshot (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        date TEXT NOT NULL,
+        location_name TEXT NOT NULL,
+        latitude REAL NOT NULL,
+        longitude REAL NOT NULL,
+        morning_temp REAL,
+        afternoon_temp REAL,
+        evening_temp REAL,
+        min_temp REAL NOT NULL,
+        max_temp REAL NOT NULL,
+        feels_like REAL,
+        humidity REAL,
+        wind_speed REAL,
+        precipitation_chance REAL,
+        condition TEXT NOT NULL,
+        uv_index REAL,
+        air_quality TEXT,
+        source TEXT NOT NULL,
+        captured_at TEXT NOT NULL DEFAULT (datetime('now'))
+      );
+      INSERT INTO weather_snapshot SELECT * FROM weather_snapshot_old;
+      DROP TABLE weather_snapshot_old;
+      CREATE INDEX IF NOT EXISTS idx_weather_date_location ON weather_snapshot(date, latitude, longitude);
+      PRAGMA user_version = 3;
+    `);
   }
 }

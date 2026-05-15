@@ -53,28 +53,13 @@ export class WeatherRepository {
 
   save(input: WeatherData): WeatherSnapshot {
     return transaction(this.db, () => {
-      this.db
+      const result = this.db
         .prepare(
           `INSERT INTO weather_snapshot (
             date, location_name, latitude, longitude, morning_temp, afternoon_temp, evening_temp,
             min_temp, max_temp, feels_like, humidity, wind_speed, precipitation_chance,
             condition, uv_index, air_quality, source, captured_at
-          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-          ON CONFLICT(date, latitude, longitude, source) DO UPDATE SET
-            location_name = excluded.location_name,
-            morning_temp = excluded.morning_temp,
-            afternoon_temp = excluded.afternoon_temp,
-            evening_temp = excluded.evening_temp,
-            min_temp = excluded.min_temp,
-            max_temp = excluded.max_temp,
-            feels_like = excluded.feels_like,
-            humidity = excluded.humidity,
-            wind_speed = excluded.wind_speed,
-            precipitation_chance = excluded.precipitation_chance,
-            condition = excluded.condition,
-            uv_index = excluded.uv_index,
-            air_quality = excluded.air_quality,
-            captured_at = excluded.captured_at`
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
         )
         .run(
           input.date,
@@ -96,7 +81,7 @@ export class WeatherRepository {
           input.source,
           input.capturedAt
         );
-      return this.getByDateLocationSource(input.date, input.latitude, input.longitude, input.source)!;
+      return this.getById(Number(result.lastInsertRowid))!;
     });
   }
 
@@ -134,10 +119,4 @@ export class WeatherRepository {
     return rows.map(map);
   }
 
-  private getByDateLocationSource(date: string, latitude: number, longitude: number, source: string): WeatherSnapshot | null {
-    const row = this.db
-      .prepare("SELECT * FROM weather_snapshot WHERE date = ? AND latitude = ? AND longitude = ? AND source = ?")
-      .get(date, latitude, longitude, source) as WeatherRow | undefined;
-    return row ? map(row) : null;
-  }
 }

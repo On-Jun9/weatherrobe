@@ -106,7 +106,8 @@ describe("Weatherrobe MVP services", () => {
       source: "llm"
     });
     const history = outfitService.history("2026-05-21", "2026-05-21", location);
-    expect(history[0].weather?.morningTemp).toBe(15);
+    // append only: outfit이 등록 시점 snapshot(first)을 유지, 새 snapshot 추가돼도 변하지 않음
+    expect(history[0].weather?.morningTemp).toBe(8);
     expect(history[0].weatherContext?.temp).toBe(8);
     expect(history[0].weatherContext?.condition).toBe("sunny");
   });
