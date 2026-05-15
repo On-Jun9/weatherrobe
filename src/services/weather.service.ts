@@ -94,6 +94,10 @@ export class WeatherService {
     return best;
   }
 
+  getById(id: number): WeatherSnapshot | null {
+    return this.weatherRepository.getById(id);
+  }
+
   getStoredWeather(date: string, location: Location): WeatherSnapshot | null {
     return this.weatherRepository.getBest(date, location.latitude, location.longitude);
   }

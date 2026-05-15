@@ -296,6 +296,7 @@ export function registerTools(server: McpServer, services: Services): void {
         .object({
           date: z.string().optional(),
           time_slot: timeSlotSchema.optional(),
+          weather_snapshot_id: z.number().int().optional().describe("get_weather로 조회한 snapshot의 id. 지정 시 해당 snapshot을 날씨로 연결. 미지정 시 자동 매칭."),
           ...locationInput,
           ...outfitFields,
           comfort_score: z.number().int().min(1).max(5).optional(),
@@ -319,6 +320,7 @@ export function registerTools(server: McpServer, services: Services): void {
           ...toCamelOutfit(args),
           date: args.date,
           timeSlot: args.time_slot,
+          weatherSnapshotId: args.weather_snapshot_id,
           latitude: args.latitude,
           longitude: args.longitude,
           comfortScore: args.comfort_score,
