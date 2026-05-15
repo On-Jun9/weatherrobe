@@ -103,7 +103,9 @@ export function migrate(db: DatabaseSync): void {
   }
 
   if (version < 3) {
+    db.exec("PRAGMA foreign_keys = OFF");
     db.exec(`
+      DROP TABLE IF EXISTS weather_snapshot_old;
       ALTER TABLE weather_snapshot RENAME TO weather_snapshot_old;
       CREATE TABLE weather_snapshot (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -129,8 +131,45 @@ export function migrate(db: DatabaseSync): void {
       INSERT INTO weather_snapshot SELECT * FROM weather_snapshot_old;
       DROP TABLE weather_snapshot_old;
       CREATE INDEX IF NOT EXISTS idx_weather_date_location ON weather_snapshot(date, latitude, longitude);
-      PRAGMA user_version = 3;
     `);
+    // outfit_log FK 참조를 weather_snapshot으로 재설정 (legacy_alter_table 이슈 대응)
+    const outfitSql = (db.prepare("SELECT sql FROM sqlite_master WHERE name='outfit_log'").get() as { sql: string }).sql;
+    if (outfitSql.includes("weather_snapshot_old")) {
+      db.exec(`
+        DROP TABLE IF EXISTS outfit_log_old;
+        ALTER TABLE outfit_log RENAME TO outfit_log_old;
+        CREATE TABLE outfit_log (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          date TEXT NOT NULL,
+          time_slot TEXT NOT NULL DEFAULT 'all_day',
+          location_name TEXT NOT NULL,
+          latitude REAL NOT NULL,
+          longitude REAL NOT NULL,
+          tops TEXT,
+          bottoms TEXT,
+          outerwear TEXT,
+          full_body TEXT,
+          innerwear TEXT,
+          shoes TEXT,
+          accessories TEXT,
+          feedback_text TEXT,
+          comfort_score INTEGER CHECK(comfort_score BETWEEN 1 AND 5),
+          felt_cold INTEGER DEFAULT 0,
+          felt_hot INTEGER DEFAULT 0,
+          weather_context TEXT,
+          weather_snapshot_id INTEGER,
+          created_at TEXT NOT NULL DEFAULT (datetime('now')),
+          updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+          FOREIGN KEY (weather_snapshot_id) REFERENCES weather_snapshot(id)
+        );
+        INSERT INTO outfit_log SELECT id,date,time_slot,location_name,latitude,longitude,tops,bottoms,outerwear,full_body,innerwear,shoes,accessories,feedback_text,comfort_score,felt_cold,felt_hot,weather_context,weather_snapshot_id,created_at,updated_at FROM outfit_log_old;
+        DROP TABLE outfit_log_old;
+        CREATE INDEX IF NOT EXISTS idx_outfit_date ON outfit_log(date);
+        CREATE INDEX IF NOT EXISTS idx_outfit_weather ON outfit_log(weather_snapshot_id);
+      `);
+    }
+    db.exec("PRAGMA foreign_keys = ON");
+    db.exec("PRAGMA user_version = 3");
   }
 
   if (version < 4) {
