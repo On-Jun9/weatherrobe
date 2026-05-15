@@ -1,6 +1,6 @@
 {
   "name": "weatherrobe",
-  "version": "1.3.0",
+  "version": "1.4.0",
   "description": "Personal weather-based outfit recommendation MCP server",
   "main": "dist/index.js",
   "scripts": {

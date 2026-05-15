@@ -21,10 +21,10 @@ export class WeatherService {
     this.providers = providers ?? [new OpenWeatherProvider(), new WeatherApiProvider(), new KmaProvider()];
   }
 
-  async getWeather(input: { date?: string; latitude?: number; longitude?: number; name?: string }): Promise<WeatherSnapshot> {
+  getWeather(input: { date?: string; latitude?: number; longitude?: number; name?: string }): WeatherSnapshot[] {
     const date = input.date ?? todayIso();
     const location = this.userService.resolveLocation(input);
-    return this.getOrFetch(date, location, date < todayIso() ? "historical" : "forecast");
+    return this.weatherRepository.getByDate(date, location.latitude, location.longitude);
   }
 
   recordSnapshot(input: {
@@ -43,6 +43,7 @@ export class WeatherService {
     uvIndex?: number;
     airQuality?: string;
     source?: string;
+    targetTime?: string;
   }): WeatherSnapshot {
     return this.weatherRepository.save({
       date: input.date,
@@ -62,6 +63,7 @@ export class WeatherService {
       uvIndex: input.uvIndex,
       airQuality: input.airQuality,
       source: input.source ?? "llm",
+      targetTime: input.targetTime,
       capturedAt: new Date().toISOString()
     });
   }
@@ -92,6 +94,10 @@ export class WeatherService {
     const best = this.weatherRepository.getBest(date, location.latitude, location.longitude);
     if (!best) throw new Error("사용 가능한 날씨 제공자가 없습니다. API 키를 설정하거나 네트워크 연결을 확인하세요.");
     return best;
+  }
+
+  getById(id: number): WeatherSnapshot | null {
+    return this.weatherRepository.getById(id);
   }
 
   getStoredWeather(date: string, location: Location): WeatherSnapshot | null {

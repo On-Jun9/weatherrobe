@@ -26,6 +26,7 @@ const locationInput = {
 };
 const locationOutputSchema = z.object({ name: z.string(), latitude: z.number(), longitude: z.number() });
 const weatherOutputSchema = z.object({
+  id: z.number(),
   date: z.string(),
   location: locationOutputSchema,
   morning_temp: z.number().optional(),
@@ -40,7 +41,9 @@ const weatherOutputSchema = z.object({
   condition: z.string(),
   uv_index: z.number().optional(),
   air_quality: z.string().optional(),
-  sources: z.array(z.string()).optional()
+  source: z.string(),
+  target_time: z.string().optional(),
+  captured_at: z.string()
 });
 const weatherContextOutputSchema = z.object({
   time_slot: z.string(),
@@ -103,7 +106,7 @@ function toCamelOutfit(input: Record<string, unknown>) {
 }
 
 function weatherJson(weather: {
-  id?: number;
+  id: number;
   date: string;
   locationName: string;
   latitude: number;
@@ -120,9 +123,12 @@ function weatherJson(weather: {
   condition: string;
   uvIndex?: number;
   airQuality?: string;
-  source?: string;
+  source: string;
+  targetTime?: string;
+  capturedAt: string;
 }) {
   return {
+    id: weather.id,
     date: weather.date,
     location: { name: weather.locationName, latitude: weather.latitude, longitude: weather.longitude },
     morning_temp: weather.morningTemp,
@@ -137,7 +143,9 @@ function weatherJson(weather: {
     condition: weather.condition,
     uv_index: weather.uvIndex,
     air_quality: weather.airQuality,
-    sources: weather.source ? [weather.source] : undefined
+    source: weather.source,
+    target_time: weather.targetTime,
+    captured_at: weather.capturedAt
   };
 }
 
@@ -210,16 +218,13 @@ export function registerTools(server: McpServer, services: Services): void {
   server.registerTool(
     "get_weather",
     {
-      description: "특정 위치와 날짜의 날씨 정보를 조회합니다. 위치 생략 시 기본 위치, 날짜 생략 시 오늘.",
+      description: "특정 위치와 날짜의 저장된 날씨 스냅샷 목록을 조회합니다. 외부 API 호출 없이 DB에 저장된 데이터만 반환합니다. 위치 생략 시 기본 위치, 날짜 생략 시 오늘.",
       inputSchema: z.object({ date: z.string().optional(), ...locationInput }),
-      outputSchema: weatherOutputSchema
+      outputSchema: z.object({ snapshots: z.array(weatherOutputSchema) })
     },
-    async (args) => {
-      try {
-        return toolResult(weatherJson(await services.weatherService.getWeather(args)));
-      } catch (error) {
-        return toolError((error as Error).message);
-      }
+    (args) => {
+      const snapshots = services.weatherService.getWeather(args);
+      return toolResult({ snapshots: snapshots.map(weatherJson) });
     }
   );
 
@@ -243,7 +248,8 @@ export function registerTools(server: McpServer, services: Services): void {
         condition: z.string(),
         uv_index: z.number().optional(),
         air_quality: z.string().optional(),
-        source: z.string().optional()
+        source: z.string().optional(),
+        target_time: z.string().regex(/^\d{2}:\d{2}$/).optional().describe("이 스냅샷이 나타내는 시각 (HH:MM). 예: '09:00', '14:30'")
       }),
       outputSchema: z.object({
         id: z.number(),
@@ -271,7 +277,8 @@ export function registerTools(server: McpServer, services: Services): void {
           condition: args.condition,
           uvIndex: args.uv_index,
           airQuality: args.air_quality,
-          source: args.source
+          source: args.source,
+          targetTime: args.target_time
         });
         return toolResult({
           id: snapshot.id,
@@ -294,6 +301,7 @@ export function registerTools(server: McpServer, services: Services): void {
         .object({
           date: z.string().optional(),
           time_slot: timeSlotSchema.optional(),
+          weather_snapshot_id: z.number().int().optional().describe("get_weather로 조회한 snapshot의 id. 지정 시 해당 snapshot을 날씨로 연결. 미지정 시 자동 매칭."),
           ...locationInput,
           ...outfitFields,
           comfort_score: z.number().int().min(1).max(5).optional(),
@@ -317,6 +325,7 @@ export function registerTools(server: McpServer, services: Services): void {
           ...toCamelOutfit(args),
           date: args.date,
           timeSlot: args.time_slot,
+          weatherSnapshotId: args.weather_snapshot_id,
           latitude: args.latitude,
           longitude: args.longitude,
           comfortScore: args.comfort_score,
