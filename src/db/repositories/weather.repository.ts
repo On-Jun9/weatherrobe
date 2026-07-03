@@ -21,6 +21,7 @@ type WeatherRow = {
   uv_index: number | null;
   air_quality: string | null;
   source: string;
+  target_time: string | null;
   captured_at: string;
 };
 
@@ -44,6 +45,7 @@ function map(row: WeatherRow): WeatherSnapshot {
     uvIndex: row.uv_index ?? undefined,
     airQuality: row.air_quality ?? undefined,
     source: row.source,
+    targetTime: row.target_time ?? undefined,
     capturedAt: row.captured_at
   };
 }
@@ -53,28 +55,13 @@ export class WeatherRepository {
 
   save(input: WeatherData): WeatherSnapshot {
     return transaction(this.db, () => {
-      this.db
+      const result = this.db
         .prepare(
           `INSERT INTO weather_snapshot (
             date, location_name, latitude, longitude, morning_temp, afternoon_temp, evening_temp,
             min_temp, max_temp, feels_like, humidity, wind_speed, precipitation_chance,
-            condition, uv_index, air_quality, source, captured_at
-          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-          ON CONFLICT(date, latitude, longitude, source) DO UPDATE SET
-            location_name = excluded.location_name,
-            morning_temp = excluded.morning_temp,
-            afternoon_temp = excluded.afternoon_temp,
-            evening_temp = excluded.evening_temp,
-            min_temp = excluded.min_temp,
-            max_temp = excluded.max_temp,
-            feels_like = excluded.feels_like,
-            humidity = excluded.humidity,
-            wind_speed = excluded.wind_speed,
-            precipitation_chance = excluded.precipitation_chance,
-            condition = excluded.condition,
-            uv_index = excluded.uv_index,
-            air_quality = excluded.air_quality,
-            captured_at = excluded.captured_at`
+            condition, uv_index, air_quality, source, target_time, captured_at
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
         )
         .run(
           input.date,
@@ -94,9 +81,10 @@ export class WeatherRepository {
           input.uvIndex ?? null,
           input.airQuality ?? null,
           input.source,
+          input.targetTime ?? null,
           input.capturedAt
         );
-      return this.getByDateLocationSource(input.date, input.latitude, input.longitude, input.source)!;
+      return this.getById(Number(result.lastInsertRowid))!;
     });
   }
 
@@ -123,10 +111,15 @@ export class WeatherRepository {
     return rows.map(map);
   }
 
-  private getByDateLocationSource(date: string, latitude: number, longitude: number, source: string): WeatherSnapshot | null {
-    const row = this.db
-      .prepare("SELECT * FROM weather_snapshot WHERE date = ? AND latitude = ? AND longitude = ? AND source = ?")
-      .get(date, latitude, longitude, source) as WeatherRow | undefined;
-    return row ? map(row) : null;
+  getByDate(date: string, latitude: number, longitude: number): WeatherSnapshot[] {
+    const rows = this.db
+      .prepare(
+        `SELECT * FROM weather_snapshot
+         WHERE date = ? AND latitude = ? AND longitude = ?
+         ORDER BY captured_at DESC, id DESC`
+      )
+      .all(date, latitude, longitude) as WeatherRow[];
+    return rows.map(map);
   }
+
 }

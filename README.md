@@ -1,8 +1,18 @@
 # Weatherrobe
 
-현재 버전: `1.3.0`
+현재 버전: `1.4.1`
 
 개인 맞춤 날씨 기반 옷차림 추천 MCP 서버입니다. 자연어 파싱은 MCP 클라이언트가 담당하고, 서버는 구조화된 위치/날씨/옷차림/체감 데이터를 처리합니다.
+
+## 현재 구현 상태
+
+- 로컬 MCP stdio 서버로 동작합니다. 원격 서버나 UI 앱이 아닙니다.
+- MCP 도구 11개가 구현되어 있으며, `content` + `structuredContent` 형식으로 응답합니다.
+- `get_weather`는 외부 API를 호출하지 않고 DB에 저장된 스냅샷 목록만 반환합니다.
+- 날씨 데이터는 보통 MCP 클라이언트/LLM이 외부에서 확인한 뒤 `record_weather_snapshot`으로 구조화 저장합니다.
+- `weather_snapshot`은 append-only입니다. 같은 날짜/위치라도 새 스냅샷을 계속 누적하고, 클라이언트가 필요한 `id`를 선택합니다.
+- `log_outfit`은 `weather_snapshot_id`를 직접 지정할 수 있고, 존재하지 않는 id는 명확한 도구 에러로 반환합니다.
+- 옷차림 기록 시 `time_slot` 기준 `weather_context`를 고정 저장하여 이후 예보 갱신과 분리합니다.
 
 ## 요구 사항
 
@@ -38,9 +48,9 @@ Claude Desktop 같은 MCP 클라이언트가 이미 아래 파일을 바라보�
 <repo-path>/dist/index.js
 ```
 
-`1.1.0` 업데이트는 DB를 자동 마이그레이션합니다. 서버 시작 시 기존 `~/.weatherrobe/weatherrobe.db`의 `PRAGMA user_version`이 `1`이면 `outfit_log.weather_context` 컬럼을 추가하고 `user_version = 2`로 올립니다.
+서버 시작 시 DB를 자동 마이그레이션합니다. 현재 스키마 버전은 `PRAGMA user_version = 4`입니다.
 
-기존 기록은 삭제되지 않습니다. 기존 기록은 `weather_context`가 비어 있을 수 있고, 이 경우 추천/유사도/성향 계산은 기존처럼 연결된 `weather_snapshot`을 fallback으로 사용합니다. 새로 기록하는 옷차림부터는 `time_slot` 기준 날씨 컨텍스트가 고정 저장됩니다.
+기존 기록은 삭제되지 않습니다. 기존 기록은 `weather_context`가 비어 있을 수 있고, 이 경우 추천/유사도/성향 계산은 연결된 `weather_snapshot`을 fallback으로 사용합니다. 새로 기록하는 옷차림부터는 `time_slot` 기준 날씨 컨텍스트가 고정 저장됩니다.
 
 ### 1.2.0 변경사항
 
@@ -55,9 +65,24 @@ Claude Desktop 같은 MCP 클라이언트가 이미 아래 파일을 바라보�
 
 - **홈 디렉토리 해석 수정**: `os.homedir()` → `os.userInfo().homedir`로 변경. MCP 호스트(Hermes 등)가 `HOME` 환경변수를 재설정해도 시스템 passwd에서 실제 홈 디렉토리를 사용하여 올바른 DB 경로(`~/.weatherrobe/weatherrobe.db`)에 접근.
 
+### 1.4.1 변경사항
+
+- **`record_weather_snapshot` 응답에 `target_time` 반환 추가**: 입력한 `target_time` 값이 응답에 포함되지 않던 버그 수정.
+- **`log_outfit` 잘못된 `weather_snapshot_id` 에러 처리**: 존재하지 않는 id 지정 시 에러 없이 자동 매칭으로 fall-through되던 버그 수정. 이제 명확한 에러 반환.
+- **MCP 통합 테스트 전면 재작성**: 1.4.0 API(`{ snapshots: [] }`)와 실제 동작에 맞게 33개 케이스로 재작성.
+
+### 1.4.0 변경사항
+
+- **`get_weather` 단건 → 리스트 반환**: 이제 `{ snapshots: [] }` 배열로 반환. 외부 API 자동 조회 제거 — DB에 저장된 데이터만 반환. LLM 클라이언트가 목록에서 원하는 snapshot을 선택하는 방식으로 변경.
+- **`weather_snapshot` append only**: `UNIQUE(date, latitude, longitude, source)` constraint 제거. 같은 날짜/위치/source라도 매번 새 행 삽입. 체감 등록 시점의 날씨가 영구적으로 보존됨.
+- **`weather_snapshot.target_time` 컬럼 추가**: 이 스냅샷이 나타내는 시각(HH:MM). 예: "09:00" = 9시 기준 날씨. `record_weather_snapshot` 호출 시 선택적으로 지정.
+- **`log_outfit`에 `weather_snapshot_id` 파라미터 추가**: `get_weather`로 조회한 snapshot의 id를 직접 지정 가능. 미지정 시 기존 자동 매칭 유지.
+- **마이그레이션 v3/v4**: `weather_snapshot` 테이블 재생성(UNIQUE 제거), `target_time` 컬럼 추가. 기존 DB 자동 업그레이드.
+- **Breaking**: `get_weather` 응답 구조 변경 (`단건 객체` → `{ snapshots: [...] }`). `weatherOutputSchema`에 `id`, `source`, `captured_at` 추가, `sources[]` 제거.
+
 ### 1.3.0 변경사항
 
-- **scraper fallback 제거**: Weather Provider 체인에서 합성 데이터 생성기(`ScraperWeatherProvider`)를 제거. API 키 미설정 + DB에 날씨 없을 때 가짜 데이터가 자동 저장되던 문제 해결. 이제 날씨 데이터가 없으면 명확한 에러를 반환하며, LLM 클라이언트가 `record_weather_snapshot`으로 직접 입력해야 함.
+- **scraper fallback 제거**: 운영 Weather Provider 체인에서 합성 데이터 생성기(`ScraperWeatherProvider`)를 제거. API 키 미설정 + DB에 날씨 없을 때 가짜 데이터가 자동 저장되던 문제 해결. Provider가 필요한 추천/변경 감지 경로에서는 명확한 에러를 반환하며, LLM 클라이언트가 `record_weather_snapshot`으로 직접 입력할 수 있음.
 
 개발 중 직접 실행하려면 다음을 사용합니다.
 
@@ -191,7 +216,8 @@ npm run test:mcp
 성공하면 다음과 비슷한 출력이 나옵니다.
 
 ```text
-MCP_INTEGRATION_TEST_PASS cases=21 artifact=.../test-artifacts/mcp-integration-test-output.json
+결과: 33 passed, 0 failed (총 33개)
+artifact: .../test-artifacts/mcp-integration-test-output.json
 ```
 
 ## 설계 경계

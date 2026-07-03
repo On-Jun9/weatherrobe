@@ -44,12 +44,16 @@ describe("Weatherrobe MVP services", () => {
     db.close();
   });
 
-  it("sets a default location and fetches deterministic weather", async () => {
-    userService.setDefaultLocation({ name: "서울 강남구", latitude: 37.4979, longitude: 127.0276 });
-    const snapshot = await weatherService.getWeather({ date: "2026-05-14" });
-    expect(snapshot.locationName).toBe("서울 강남구");
-    expect(snapshot.minTemp).toBeLessThan(snapshot.maxTemp);
-    expect(snapshot.source).toBe("scraper");
+  it("sets a default location and returns stored weather snapshots", () => {
+    const location = userService.setDefaultLocation({ name: "서울 강남구", latitude: 37.4979, longitude: 127.0276 });
+    expect(weatherService.getWeather({ date: "2026-05-14" })).toEqual([]);
+
+    weatherService.recordSnapshot({ date: "2026-05-14", location, minTemp: 15, maxTemp: 25, condition: "sunny", source: "llm" });
+    weatherService.recordSnapshot({ date: "2026-05-14", location, minTemp: 16, maxTemp: 26, condition: "cloudy", source: "openweather" });
+    const snapshots = weatherService.getWeather({ date: "2026-05-14" });
+    expect(snapshots).toHaveLength(2);
+    expect(snapshots[0].locationName).toBe("서울 강남구");
+    expect(snapshots[0].minTemp).toBeLessThan(snapshots[0].maxTemp);
   });
 
   it("records weather supplied by an LLM client and reuses it for outfit logs", async () => {
@@ -102,7 +106,8 @@ describe("Weatherrobe MVP services", () => {
       source: "llm"
     });
     const history = outfitService.history("2026-05-21", "2026-05-21", location);
-    expect(history[0].weather?.morningTemp).toBe(15);
+    // append only: outfit이 등록 시점 snapshot(first)을 유지, 새 snapshot 추가돼도 변하지 않음
+    expect(history[0].weather?.morningTemp).toBe(8);
     expect(history[0].weatherContext?.temp).toBe(8);
     expect(history[0].weatherContext?.condition).toBe("sunny");
   });

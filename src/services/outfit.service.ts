@@ -16,19 +16,28 @@ export class OutfitService {
     this.userService = new UserService(users);
   }
 
-  async log(input: Omit<LogOutfitInput, "date" | "timeSlot" | "location"> & { date?: string; timeSlot?: LogOutfitInput["timeSlot"]; latitude?: number; longitude?: number }): Promise<OutfitLog> {
+  async log(input: Omit<LogOutfitInput, "date" | "timeSlot" | "location"> & { date?: string; timeSlot?: LogOutfitInput["timeSlot"]; latitude?: number; longitude?: number; weatherSnapshotId?: number }): Promise<OutfitLog> {
     const date = input.date ?? todayIso();
     const location = this.userService.resolveLocation(input);
     const timeSlot = input.timeSlot ?? "all_day";
     let weatherSnapshotId: number | undefined;
     let weatherContext: WeatherContext | undefined;
-    try {
-      const weather = await this.weatherService.getOrFetch(date, location, date < todayIso() ? "historical" : "forecast");
+
+    if (input.weatherSnapshotId !== undefined) {
+      const weather = this.weatherService.getById(input.weatherSnapshotId);
+      if (!weather) throw new Error(`weather_snapshot_id ${input.weatherSnapshotId}에 해당하는 스냅샷이 없습니다.`);
       weatherSnapshotId = weather.id;
       weatherContext = weatherContextForSlot(weather, timeSlot);
-    } catch {
-      weatherSnapshotId = undefined;
+    } else {
+      try {
+        const weather = await this.weatherService.getOrFetch(date, location, date < todayIso() ? "historical" : "forecast");
+        weatherSnapshotId = weather.id;
+        weatherContext = weatherContextForSlot(weather, timeSlot);
+      } catch {
+        weatherSnapshotId = undefined;
+      }
     }
+
     return this.outfits.create({
       ...input,
       date,

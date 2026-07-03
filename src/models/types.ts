@@ -37,6 +37,7 @@ export type WeatherData = {
   uvIndex?: number;
   airQuality?: string;
   source: string;
+  targetTime?: string;
   capturedAt: string;
 };
 
